@@ -3,9 +3,10 @@ export type MigrationBundler = "vite" | "wrangler";
 export interface WranglerToCfMigrationOptions {
 	bundler?: MigrationBundler;
 	dryRun?: boolean;
-	force?: boolean;
 	/** Whether to install cf and install or upgrade Vite plugin and Wrangler dependencies when needed. Required dependency changes become blocking follow-ups when false. */
 	installDependencies?: boolean;
+	/** Runs after the migration's own checks and before it reads or changes the project, for example to refuse a Git worktree with uncommitted changes. */
+	beforeMigrate?: (projectDirectory: string) => Promise<void>;
 }
 
 export interface MigrationFollowUp {

@@ -1,10 +1,12 @@
 import { execFileSync } from "node:child_process";
 import {
 	cpSync,
+	mkdirSync,
 	mkdtempSync,
 	readdirSync,
 	readFileSync,
 	rmSync,
+	symlinkSync,
 	writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,6 +36,15 @@ function createConsumer(): string {
 	cpSync(
 		path.join(packageRoot, "package.json"),
 		path.join(directory, "package.json")
+	);
+	// Like an install, provide the dependency the package keeps external
+	mkdirSync(path.join(directory, "node_modules/@cloudflare"), {
+		recursive: true,
+	});
+	symlinkSync(
+		path.join(packageRoot, "node_modules/@cloudflare/autoconfig"),
+		path.join(directory, "node_modules/@cloudflare/autoconfig"),
+		"junction"
 	);
 	writeFileSync(
 		path.join(directory, "vitest.config.ts"),

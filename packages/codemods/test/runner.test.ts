@@ -170,6 +170,24 @@ describe("codemod runner", () => {
 		).rejects.toThrow("Git worktree is not clean");
 	});
 
+	it("reports an existing migration before checking the Git worktree", async ({
+		expect,
+	}) => {
+		const cwd = await createProject({
+			"wrangler.jsonc": JSON.stringify({
+				compatibility_date: "2026-09-24",
+				name: "rerun-test",
+			}),
+		});
+		await commitProject(cwd);
+		// An earlier run's output, not committed yet
+		await writeFile(path.join(cwd, "cloudflare.config.ts"), "");
+
+		await expect(
+			runCodemod("wrangler-to-cf", { cwd, dryRun: false })
+		).rejects.toThrow("Cannot migrate because");
+	});
+
 	it("accepts an exact Wrangler config and bundler", async ({ expect }) => {
 		const cwd = await createProject({
 			"node_modules/wrangler/package.json": JSON.stringify({
