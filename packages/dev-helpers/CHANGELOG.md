@@ -1,5 +1,15 @@
 # @cloudflare/dev-helpers
 
+## 0.0.4
+
+### Patch Changes
+
+- Updated dependencies [[`b645124`](https://github.com/cloudflare/workers-sdk/commit/b6451243417e541f61f239c6275b20c59927b497), [`b645124`](https://github.com/cloudflare/workers-sdk/commit/b6451243417e541f61f239c6275b20c59927b497), [`b645124`](https://github.com/cloudflare/workers-sdk/commit/b6451243417e541f61f239c6275b20c59927b497)]:
+  - @cloudflare/workers-utils@0.57.1
+  - @cloudflare/config@1.0.0-rc.5
+  - @cloudflare/containers-shared@0.27.3
+  - miniflare@5.20261124.0-beta
+
 ## 0.0.3
 
 ### Patch Changes
