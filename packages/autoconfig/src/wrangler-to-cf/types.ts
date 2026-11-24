@@ -5,7 +5,7 @@ export interface WranglerToCfMigrationOptions {
 	dryRun?: boolean;
 	/** Whether to install cf and install or upgrade Vite plugin and Wrangler dependencies when needed. Required dependency changes become blocking follow-ups when false. */
 	installDependencies?: boolean;
-	/** Runs after the migration's own checks and before it reads or changes the project, for example to refuse a Git worktree with uncommitted changes. */
+	/** Runs once the migration has checked that `cloudflare.config.ts` doesn't exist yet, before it reads or changes the project, for example to refuse a Git worktree with uncommitted changes. */
 	beforeMigrate?: (projectDirectory: string) => Promise<void>;
 }
 
