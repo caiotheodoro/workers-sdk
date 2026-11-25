@@ -64,6 +64,109 @@ export function validateUploadSize(key: string, sizeBytes: number): void {
 	}
 }
 
+const HTTP_DATE_PATTERN =
+	/^(?:Mon|Tue|Wed|Thu|Fri|Sat|Sun), (?<day>\d{2}) (?<month>Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) (?<year>\d{4}) (?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}) GMT$/;
+const ISO_DATE_TIME_PATTERN =
+	/^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})(?:T(?<hour>\d{2}):(?<minute>\d{2})(?::(?<second>\d{2})(?:\.(?<fraction>\d+))?)?(?<timezone>Z|[+-]\d{2}:\d{2})?)?$/i;
+
+const monthNumbers: Record<string, number> = {
+	Jan: 1,
+	Feb: 2,
+	Mar: 3,
+	Apr: 4,
+	May: 5,
+	Jun: 6,
+	Jul: 7,
+	Aug: 8,
+	Sep: 9,
+	Oct: 10,
+	Nov: 11,
+	Dec: 12,
+};
+
+function isValidCalendarDate(
+	year: number,
+	month: number,
+	day: number
+): boolean {
+	const daysInMonth = [
+		31,
+		year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0) ? 29 : 28,
+		31,
+		30,
+		31,
+		30,
+		31,
+		31,
+		30,
+		31,
+		30,
+		31,
+	];
+	return month >= 1 && month <= 12 && day >= 1 && day <= daysInMonth[month - 1];
+}
+
+function isValidTime(hour: number, minute: number, second: number): boolean {
+	return hour < 24 && minute < 60 && second < 60;
+}
+
+function parseDateString(value: string): number | undefined {
+	const httpDateMatch = HTTP_DATE_PATTERN.exec(value);
+	if (httpDateMatch?.groups) {
+		const { year, month, day, hour, minute, second } = httpDateMatch.groups;
+		if (
+			isValidCalendarDate(Number(year), monthNumbers[month], Number(day)) &&
+			isValidTime(Number(hour), Number(minute), Number(second))
+		) {
+			return Date.parse(value);
+		}
+		return undefined;
+	}
+
+	const isoDateMatch = ISO_DATE_TIME_PATTERN.exec(value);
+	if (isoDateMatch?.groups) {
+		const { year, month, day, hour, minute, second } = isoDateMatch.groups;
+		if (
+			isValidCalendarDate(Number(year), Number(month), Number(day)) &&
+			(hour === undefined ||
+				isValidTime(Number(hour), Number(minute), Number(second ?? 0)))
+		) {
+			return Date.parse(value);
+		}
+	}
+
+	return undefined;
+}
+
+/**
+ * Parse the `--expires` value into epoch milliseconds for a local R2 put.
+ *
+ * Integer strings are treated as epoch milliseconds for backwards compatibility.
+ * Other values are parsed as preferred HTTP-dates or ISO 8601 date/times.
+ * This ordering is important because `Date.parse()` interprets some numeric
+ * strings as calendar years instead.
+ */
+export function parseExpires(expires: string): number {
+	const value = expires.trim();
+
+	if (/^[+-]?\d+$/.test(value)) {
+		const epochMilliseconds = Number(value);
+		if (!Number.isNaN(new Date(epochMilliseconds).getTime())) {
+			return epochMilliseconds;
+		}
+	} else {
+		const parsedMilliseconds = parseDateString(value);
+		if (parsedMilliseconds !== undefined && !Number.isNaN(parsedMilliseconds)) {
+			return parsedMilliseconds;
+		}
+	}
+
+	throw new UserError(
+		`The --expires value "${expires}" could not be parsed as a date. Use an HTTP-date (for example, "Fri, 01 Jan 2100 00:00:00 GMT"), an ISO 8601 date, or epoch milliseconds.`,
+		{ telemetryMessage: "r2 object put invalid expires" }
+	);
+}
+
 const putHeaderKeys = [
 	"cache-control",
 	"content-disposition",

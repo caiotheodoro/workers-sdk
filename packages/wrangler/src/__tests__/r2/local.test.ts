@@ -1,6 +1,8 @@
 import * as fs from "node:fs";
 import { runInTempDir } from "@cloudflare/workers-utils/test-helpers";
 import { describe, it, vi } from "vitest";
+import { readConfig } from "../../config";
+import { parseExpires, usingLocalBucket } from "../../r2/helpers/object";
 import { mockConsoleMethods } from "../helpers/mock-console";
 import { runWrangler } from "../helpers/run-wrangler";
 
@@ -305,6 +307,80 @@ describe("r2", () => {
 				);
 			});
 
+			it("should store an HTTP-date --expires value on a local object", async ({
+				expect,
+			}) => {
+				const expires = "Fri, 01 Jan 2100 00:00:00 GMT";
+				fs.writeFileSync("expires-payload", "passageway");
+
+				await runWrangler(
+					`r2 object put bucket-object-test/expires-http --file ./expires-payload --expires "${expires}"`
+				);
+
+				await usingLocalBucket(
+					undefined,
+					readConfig({}),
+					"bucket-object-test",
+					async (bucket) => {
+						const object = await bucket.head("expires-http");
+						expect(object?.httpMetadata?.cacheExpiry).toEqual(
+							new Date(expires)
+						);
+					}
+				);
+				std.getAndClearOut();
+			});
+
+			it("should store an ISO --expires value on a local object", async ({
+				expect,
+			}) => {
+				fs.writeFileSync("expires-payload", "passageway");
+
+				await runWrangler(
+					`r2 object put bucket-object-test/expires-iso --file ./expires-payload --expires 2100-01-01`
+				);
+
+				await usingLocalBucket(
+					undefined,
+					readConfig({}),
+					"bucket-object-test",
+					async (bucket) => {
+						const object = await bucket.head("expires-iso");
+						expect(object?.httpMetadata?.cacheExpiry).toEqual(
+							new Date("2100-01-01T00:00:00.000Z")
+						);
+					}
+				);
+				std.getAndClearOut();
+			});
+
+			it("should store an --expires value on objects uploaded with bulk put", async ({
+				expect,
+			}) => {
+				fs.writeFileSync("expires-payload", "passageway");
+				fs.writeFileSync(
+					"list.json",
+					JSON.stringify([{ key: "bulk-expires-iso", file: "expires-payload" }])
+				);
+
+				await runWrangler(
+					`r2 bulk put bucket-object-test --filename ./list.json --expires 2100-01-01`
+				);
+
+				await usingLocalBucket(
+					undefined,
+					readConfig({}),
+					"bucket-object-test",
+					async (bucket) => {
+						const object = await bucket.head("bulk-expires-iso");
+						expect(object?.httpMetadata?.cacheExpiry).toEqual(
+							new Date("2100-01-01T00:00:00.000Z")
+						);
+					}
+				);
+				std.getAndClearOut();
+			});
+
 			it("should follow persist-to for object bucket", async ({ expect }) => {
 				fs.writeFileSync("wormhole-img.png", "passageway");
 				await runWrangler(
@@ -374,6 +450,41 @@ describe("r2", () => {
 					Downloading "file-two" from "bucket-object-test".
 					Download complete."
 				`);
+			});
+		});
+
+		describe("parseExpires", () => {
+			it("should parse HTTP-dates", ({ expect }) => {
+				expect(parseExpires("Fri, 01 Jan 2100 00:00:00 GMT")).toBe(
+					4_102_444_800_000
+				);
+			});
+
+			it("should parse ISO 8601 dates", ({ expect }) => {
+				expect(parseExpires("2100-01-01")).toBe(4_102_444_800_000);
+				expect(parseExpires("2100-01-01T00:00:00.000Z")).toBe(
+					4_102_444_800_000
+				);
+			});
+
+			it("should treat integer strings as epoch milliseconds", ({ expect }) => {
+				expect(parseExpires("0")).toBe(0);
+				expect(parseExpires("1234")).toBe(1234);
+				expect(parseExpires("4102444800000")).toBe(4_102_444_800_000);
+			});
+
+			it("should reject values that are neither dates nor epoch milliseconds", ({
+				expect,
+			}) => {
+				expect(() => parseExpires("not-a-date")).toThrow(
+					'The --expires value "not-a-date" could not be parsed as a date.'
+				);
+				expect(() => parseExpires("foo 2100")).toThrow(
+					'The --expires value "foo 2100" could not be parsed as a date.'
+				);
+				expect(() => parseExpires("2100-02-30")).toThrow(
+					'The --expires value "2100-02-30" could not be parsed as a date.'
+				);
 			});
 		});
 	});

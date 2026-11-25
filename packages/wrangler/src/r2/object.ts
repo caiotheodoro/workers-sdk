@@ -23,6 +23,7 @@ import { isDataCatalogConflict } from "./helpers/misc";
 import {
 	deleteR2Object,
 	getR2Object,
+	parseExpires,
 	putRemoteObject,
 	usingLocalBucket,
 	validateAndReturnBucketAndKey,
@@ -369,7 +370,7 @@ export const r2ObjectPutCommand = createCommand({
 							cacheExpiry:
 								yArgs.expires === undefined
 									? undefined
-									: parseInt(yArgs.expires),
+									: parseExpires(yArgs.expires),
 						},
 					};
 					// We can't use `r2Bucket.put()` here as `R2Bucket#put()`
@@ -646,7 +647,7 @@ export const r2BulkPutCommand = createCommand({
 							cacheExpiry:
 								yArgs.expires === undefined
 									? undefined
-									: parseInt(yArgs.expires),
+									: parseExpires(yArgs.expires),
 						},
 					};
 
